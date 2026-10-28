@@ -57,6 +57,7 @@ final class MainThreadWatchdog {
     // queue-confined
     private var timer: DispatchSourceTimer?
     private var tracker = MainThreadStallTracker(threshold: 0.5)
+    private var lastSampleAt: TimeInterval = -.infinity
 
     private static let lastLineLock = NSLock()
     private static var lastLine: (at: TimeInterval, category: LogCategory, text: String)?
@@ -85,6 +86,7 @@ final class MainThreadWatchdog {
         let (sendPing, blocked) = tracker.tick(at: now)
         if let blocked {
             hyprLog(.error, .perf, "main thread blocked \(Self.ms(blocked)) ms so far — \(Self.lastMainLine(now: now))")
+            if blocked >= 2 { sampleMainStack(now: now) }
         }
         guard sendPing else { return }
         DispatchQueue.main.async { [weak self] in
@@ -96,6 +98,32 @@ final class MainThreadWatchdog {
     private func pong(at now: TimeInterval) {
         guard let stall = tracker.pong(at: now) else { return }
         hyprLog(.error, .perf, "main thread stalled \(Self.ms(stall)) ms — \(Self.lastMainLine(now: now))")
+    }
+
+    /// The last log line only hints at the culprit; a stack shows where main
+    /// actually waits. One 1 s `sample` run, at most every 5 min. It needs
+    /// get-task-allow, so it works in Debug builds and fails in release.
+    private func sampleMainStack(now: TimeInterval) {
+        guard now - lastSampleAt >= 300 else { return }
+        lastSampleAt = now
+        let stamp = ISO8601DateFormatter.string(from: Date(), timeZone: .current,
+                                                formatOptions: [.withFullDate, .withTime])
+        let path = NSHomeDirectory() + "/Library/Logs/HyprMac/stall-\(stamp).txt"
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/sample")
+        process.arguments = [String(getpid()), "1", "-mayDie", "-file", path]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        process.terminationHandler = { p in
+            hyprLog(.error, .perf, p.terminationStatus == 0
+                ? "main stack sample written to \(path)"
+                : "main stack sample failed with exit \(p.terminationStatus)")
+        }
+        do {
+            try process.run()
+        } catch {
+            hyprLog(.error, .perf, "main stack sample failed to start: \(error.localizedDescription)")
+        }
     }
 
     private static func lastMainLine(now: TimeInterval) -> String {
