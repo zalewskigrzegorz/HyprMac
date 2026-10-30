@@ -308,6 +308,10 @@ class HotkeyManager {
                 return event
             }
             let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+            // tells key-repeat floods apart from real presses in burst tests
+            if isRepeat {
+                hyprLog(.debug, .lifecycle, "autorepeat: \(ActionDispatcher.discriminator(for: action))")
+            }
             guard Self.shouldDispatchAction(
                 action, tilingEnabled: tilingEnabled, isRepeat: isRepeat) else {
                 return nil
