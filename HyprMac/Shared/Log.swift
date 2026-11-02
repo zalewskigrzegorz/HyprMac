@@ -33,6 +33,7 @@ enum LogCategory: String, CaseIterable {
     case ui, animator, border, dimming, overlay
     case config, persistence, migration, sync
     case lifecycle, accessibility, space, display
+    case perf
 }
 
 private let subsystem = Bundle.main.bundleIdentifier ?? "com.zachgray.HyprMac"
@@ -104,6 +105,11 @@ func hyprLog(_ level: LogLevel = .debug,
         let m = message()
         rendered = m
         DebugLogFile.shared.append(level: level, category: category, message: m)
+    }
+    if rendered == nil && level >= .notice { rendered = message() }
+    // the hang watchdog quotes the last thing main logged before it stalled
+    if let rendered, Thread.isMainThread {
+        MainThreadWatchdog.noteMainThreadLine(category, rendered)
     }
 
     // diagnostic tier — always emits, visible in Console.app for support.
