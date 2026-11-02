@@ -1,6 +1,7 @@
 #!/bin/bash
 # Builds tools/usage-monitor.swift into "HyprMac Usage.app" and (re)launches it.
-# Signed with the Apple Development identity when present, so the Accessibility grant survives rebuilds.
+# Signed with the Developer ID identity when present, the same one as the notarized nightly zip,
+# so one Accessibility grant covers local rebuilds and nightly installs.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -24,7 +25,7 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-identity=$(security find-identity -v -p codesigning | awk -F'"' '/Apple Development/ {print $2; exit}')
+identity=$(security find-identity -v -p codesigning | awk -F'"' '/Developer ID Application/ {print $2; exit}')
 codesign --force --sign "${identity:--}" "$app"
 
 pkill -x HyprMacUsage || true
