@@ -26,6 +26,19 @@ Use:
 ./tools/space-test park <wid> <x> <y>    # AX position write probe (needs AX trust)
 ```
 
-Keep this tool around — if Apple ever re-opens these APIs in a future
+## usage-monitor
+
+Floating HUD that watches the running HyprMac (Debug first, then release) from a separate
+process: main-thread lag (AX round trip), CPU %, memory footprint and workspace switch time
+(from the Debug file log), each with a 60 s held max and spikes in red.
+
+```
+bash scripts/build-usage-monitor.sh   # build, self-test, sign, (re)launch
+```
+
+Grant "HyprMac Usage" Accessibility once, or the lag row shows "no AX access". Right-click
+the panel to quit.
+
+Keep the space-test tool around — if Apple ever re-opens these APIs in a future
 release, the same script will tell us in seconds whether the move actually
 takes effect.
